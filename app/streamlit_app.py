@@ -10,4 +10,4 @@ if not os.path.exists("data/processed/penalties.csv"):
 
 
 import pdfplumber
-st.write("✅ pdfplumber loaded successfully")
+st.write("✅ pdfplumber is installed and working")
