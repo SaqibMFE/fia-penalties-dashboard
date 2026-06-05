@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.DS_Store
+
+# large files
+data/raw/*.pdf
+
+# virtual env
+venv/
