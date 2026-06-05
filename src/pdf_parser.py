@@ -4,8 +4,14 @@ import pdfplumber
 import pandas as pd
 
 # Root folder
-RAW_DATA_PATH = "data/raw"
-OUTPUT_PATH = "data/processed/penalties.csv"
+
+import os
+
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+RAW_DATA_PATH = os.path.join(BASE_DIR, "data", "raw")
+OUTPUT_PATH = os.path.join(BASE_DIR, "data", "processed", "penalties.csv")
+
 
 
 def extract_text_from_pdf(pdf_path):
@@ -81,35 +87,60 @@ def parse_decision(text, file_name):
     return data
 
 
+
 def process_all_pdfs():
     print("✅ Parser started")
+
     all_records = []
 
     for root, dirs, files in os.walk(RAW_DATA_PATH):
+        print(f"📁 Checking folder: {root}")
+
         for file in files:
-            if file.endswith(".pdf"):
+            print(f"📄 Found file: {file}")
 
+            if file.lower().endswith(".pdf"):
                 pdf_path = os.path.join(root, file)
-
-                print(f"Processing: {pdf_path}")
 
                 try:
                     text = extract_text_from_pdf(pdf_path)
-                    parsed = parse_decision(text, file)
 
-                    # Optional: infer event from folder
-                    parsed["Event"] = root.split("/")[-1]
+                    if not text or text.strip() == "":
+                        print(f"⚠️ Empty PDF: {file}")
+                        continue
+
+                    parsed = parse_decision(
+                        text,
+                        file_name=file,
+                        folder_name=os.path.basename(root)
+                    )
+
+                    print(f"✅ Parsed: {parsed}")
 
                     all_records.append(parsed)
 
                 except Exception as e:
-                    print(f"Error processing {file}: {e}")
+                    print(f"❌ Error processing {file}: {e}")
+
 
     df = pd.DataFrame(all_records)
 
     # Save output
     os.makedirs("data/processed", exist_ok=True)
+
+    
+    import pandas as pd
+    
+    df = pd.DataFrame(all_records)
+    
+    print(f"📊 Total records collected: {len(df)}")
+    
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+    
     df.to_csv(OUTPUT_PATH, index=False)
+    
+    print(f"✅ CSV successfully saved at: {OUTPUT_PATH}")
+
 
     print(f"\n✅ Data saved to {OUTPUT_PATH}")
 
