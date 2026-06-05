@@ -82,6 +82,7 @@ def parse_decision(text, file_name):
 
 
 def process_all_pdfs():
+    print("✅ Parser started")
     all_records = []
 
     for root, dirs, files in os.walk(RAW_DATA_PATH):
