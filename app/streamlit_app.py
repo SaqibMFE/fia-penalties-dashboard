@@ -1,7 +1,8 @@
-import streamlit as st
 
-import subprocess
+import streamlit as st
+import pandas as pd
 import os
+import subprocess
 
 # Run parser if data does not exist
 if not os.path.exists("data/processed/penalties.csv"):
