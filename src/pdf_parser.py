@@ -113,6 +113,4 @@ def process_all_pdfs():
     print(f"\n✅ Data saved to {OUTPUT_PATH}")
 
 
-if __name__ == "__main__":
-    process_all_pdfs()
 
