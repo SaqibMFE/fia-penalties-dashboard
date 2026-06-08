@@ -1,20 +1,34 @@
 import streamlit as st
 import sys
 import os
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-
-
 import pandas as pd
-import os
 
+# ✅ Fix import path for src
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(BASE_DIR)
 
-import os
+# ✅ Import parser
 from src.pdf_parser import process_all_pdfs
 
-if not os.path.exists("data/processed/penalties.csv"):
+# ✅ Correct absolute paths
+DATA_PATH = os.path.join(BASE_DIR, "data", "processed", "penalties.csv")
+
+st.title("FIA Penalties Dashboard")
+
+# ✅ Run parser if CSV does not exist
+if not os.path.exists(DATA_PATH):
+    st.write("⚙️ Generating dataset from PDFs...")
     process_all_pdfs()
 
-import pdfplumber
-st.write("✅ pdfplumber is installed and working")
+# ✅ Try loading data
+if os.path.exists(DATA_PATH):
+    df = pd.read_csv(DATA_PATH)
+
+    st.success("✅ Data loaded successfully")
+
+    # Show basic info
+    st.write("Total records:", len(df))
+    st.dataframe(df)
+
+else:
+    st.error("❌ CSV file was not created. Check logs.")
