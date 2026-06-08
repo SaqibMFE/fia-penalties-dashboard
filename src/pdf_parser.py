@@ -1,11 +1,10 @@
-
 import os
-import pdfplumber
 import pandas as pd
+import pdfplumber
+import re
 
 # Root folder
 
-import os
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -129,7 +128,6 @@ def process_all_pdfs():
     os.makedirs("data/processed", exist_ok=True)
 
     
-    import pandas as pd
     
     df = pd.DataFrame(all_records)
     
