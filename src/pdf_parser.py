@@ -3,16 +3,13 @@ import pandas as pd
 import pdfplumber
 import re
 
-# -------------------------------
-# PATHS
-# -------------------------------
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 RAW_DATA_PATH = os.path.join(BASE_DIR, "data", "raw")
 OUTPUT_PATH = os.path.join(BASE_DIR, "data", "processed", "penalties.csv")
 
 
 # -------------------------------
-# READ PDF TEXT
+# READ PDF
 # -------------------------------
 def extract_text_from_pdf(pdf_path):
     text = ""
@@ -25,35 +22,49 @@ def extract_text_from_pdf(pdf_path):
 
 
 # -------------------------------
-# MAIN LINE PARSING (CRITICAL FIX)
+# MAIN LINE (PRIMARY METHOD)
 # -------------------------------
 def extract_main_line(text):
 
-    """
-    Extracts:
-    Car #
-    Driver
-    Team
-    Session
-    Time (FACT TIME ONLY)
-    """
-
-    match = re.search(
+    pattern = re.search(
         r"N[°o]\s*/\s*Driver:\s*(\d+)\s*/\s*(.*?)\s+Competitor:\s*(.*?)\s+Session:\s*(.*?)\s+Time\s*\(fact\):\s*([\d:]+)",
+        text,
+        re.IGNORECASE
+    )
+
+    if pattern:
+        return (
+            pattern.group(1).strip(),  # car
+            pattern.group(2).strip(),  # driver
+            pattern.group(3).strip(),  # team
+            pattern.group(4).strip(),  # session
+            pattern.group(5).strip(),  # time
+        )
+
+    return None, None, None, None, None
+
+
+# -------------------------------
+# FALLBACK DRIVER + CAR
+# -------------------------------
+def fallback_driver_car(text):
+
+    # fallback when line breaks differently
+    match = re.search(
+        r"N[°o]\s*/\s*Driver:\s*(\d+)\s*/\s*([^\n]+)",
         text,
         re.IGNORECASE
     )
 
     if match:
         car = match.group(1).strip()
-        driver = match.group(2).strip()
-        team = match.group(3).strip()
-        session = match.group(4).strip()
-        time = match.group(5).strip()
 
-        return car, driver, team, session, time
+        # remove trailing stuff like Competitor:
+        driver = re.split(r"Competitor:", match.group(2))[0].strip()
 
-    return None, None, None, None, None
+        return car, driver
+
+    return None, None
 
 
 # -------------------------------
@@ -65,7 +76,7 @@ def extract_decision_number(text):
 
 
 # -------------------------------
-# DATE (BOTTOM BLOCK)
+# DATE
 # -------------------------------
 def extract_date(text):
     match = re.search(r"Date:\s*(.*)", text)
@@ -73,7 +84,7 @@ def extract_date(text):
 
 
 # -------------------------------
-# OFFENCE / DECISION / REASON
+# SECTIONS
 # -------------------------------
 def extract_sections(text):
 
@@ -95,15 +106,17 @@ def parse_decision(text, filename, folder):
 
     lower = text.lower()
 
-    # ✅ Multiple / track limits case
     if "track limits" in lower:
-        car = None
-        driver = "Multiple"
-        team = "Multiple"
-        session = None
-        time = None
+        car, driver, team, session, time = None, "Multiple", "Multiple", None, None
+
     else:
         car, driver, team, session, time = extract_main_line(text)
+
+        # ✅ fallback if main fails
+        if not driver or not car:
+            fallback_car, fallback_driver = fallback_driver_car(text)
+            car = car or fallback_car
+            driver = driver or fallback_driver
 
     decision_number = extract_decision_number(text)
     offence, decision, reason = extract_sections(text)
@@ -159,13 +172,14 @@ def process_all_pdfs():
     if df.empty:
         return df
 
-    # ✅ Correct datetime parsing
+    # ✅ TIME CLEANING
+    df["Time"] = pd.to_datetime(df["Time"], format="%H:%M", errors="coerce").dt.time
+
+    # ✅ DATE CLEANING
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df["Time"] = pd.to_datetime(df["Time"], format="%H:%M", errors="coerce")
 
     df = df.sort_values(by=["Date", "Time"])
 
-    # ✅ Final column order
     df = df[
         [
             "Event",
