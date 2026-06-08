@@ -22,36 +22,13 @@ def extract_text_from_pdf(pdf_path):
 
 
 # -------------------------------
-# MAIN LINE (PRIMARY METHOD)
+# DRIVER + CAR (ROBUST FIX)
 # -------------------------------
-def extract_main_line(text):
+def extract_driver_and_car(text):
 
-    pattern = re.search(
-        r"N[°o]\s*/\s*Driver:\s*(\d+)\s*/\s*(.*?)\s+Competitor:\s*(.*?)\s+Session:\s*(.*?)\s+Time\s*\(fact\):\s*([\d:]+)",
-        text,
-        re.IGNORECASE
-    )
-
-    if pattern:
-        return (
-            pattern.group(1).strip(),  # car
-            pattern.group(2).strip(),  # driver
-            pattern.group(3).strip(),  # team
-            pattern.group(4).strip(),  # session
-            pattern.group(5).strip(),  # time
-        )
-
-    return None, None, None, None, None
-
-
-# -------------------------------
-# FALLBACK DRIVER + CAR
-# -------------------------------
-def fallback_driver_car(text):
-
-    # fallback when line breaks differently
+    # Handles line breaks + flexible spacing
     match = re.search(
-        r"N[°o]\s*/\s*Driver:\s*(\d+)\s*/\s*([^\n]+)",
+        r"N[°o]\s*/\s*Driver\s*:\s*(\d+)\s*/\s*([^\n]+)",
         text,
         re.IGNORECASE
     )
@@ -59,12 +36,66 @@ def fallback_driver_car(text):
     if match:
         car = match.group(1).strip()
 
-        # remove trailing stuff like Competitor:
-        driver = re.split(r"Competitor:", match.group(2))[0].strip()
+        # Remove everything after "Competitor"
+        driver = re.split(r"Competitor", match.group(2))[0].strip()
 
         return car, driver
 
     return None, None
+
+
+# -------------------------------
+# TEAM (ROBUST)
+# -------------------------------
+def extract_team(text):
+
+    match = re.search(r"Competitor\s*:\s*(.*)", text)
+
+    if match:
+        value = match.group(1)
+
+        # stop at next known field
+        value = re.split(r"(Session|Time|Fact)", value)[0].strip()
+
+        return value
+
+    return None
+
+
+# -------------------------------
+# SESSION (ROBUST)
+# -------------------------------
+def extract_session(text):
+
+    match = re.search(r"Session\s*:\s*(.*)", text)
+
+    if match:
+        value = match.group(1)
+        value = re.split(r"(Time|Fact)", value)[0].strip()
+        return value
+
+    return None
+
+
+# -------------------------------
+# TIME (FACT ONLY ✅)
+# -------------------------------
+def extract_time(text):
+
+    match = re.search(r"Time\s*\(fact\)\s*:\s*([\d:]+)", text, re.IGNORECASE)
+
+    if match:
+        return match.group(1)
+
+    return None
+
+
+# -------------------------------
+# DATE (BOTTOM BLOCK)
+# -------------------------------
+def extract_date(text):
+    match = re.search(r"Date\s*:\s*(.*)", text)
+    return match.group(1).strip() if match else None
 
 
 # -------------------------------
@@ -76,21 +107,13 @@ def extract_decision_number(text):
 
 
 # -------------------------------
-# DATE
-# -------------------------------
-def extract_date(text):
-    match = re.search(r"Date:\s*(.*)", text)
-    return match.group(1).strip() if match else None
-
-
-# -------------------------------
 # SECTIONS
 # -------------------------------
 def extract_sections(text):
 
-    offence = re.search(r"Offence:\s*(.*)", text)
-    decision = re.search(r"Decision:\s*(.*)", text)
-    reason = re.search(r"Reason:\s*(.*)", text)
+    offence = re.search(r"Offence\s*:\s*(.*)", text)
+    decision = re.search(r"Decision\s*:\s*(.*)", text)
+    reason = re.search(r"Reason\s*:\s*(.*)", text)
 
     return (
         offence.group(1).strip() if offence else None,
@@ -100,23 +123,21 @@ def extract_sections(text):
 
 
 # -------------------------------
-# PARSER
+# MAIN PARSER
 # -------------------------------
 def parse_decision(text, filename, folder):
 
     lower = text.lower()
 
+    car, driver = extract_driver_and_car(text)
+    team = extract_team(text)
+    session = extract_session(text)
+    time = extract_time(text)
+
+    # ✅ TRACK LIMITS FIX
     if "track limits" in lower:
-        car, driver, team, session, time = None, "Multiple", "Multiple", None, None
-
-    else:
-        car, driver, team, session, time = extract_main_line(text)
-
-        # ✅ fallback if main fails
-        if not driver or not car:
-            fallback_car, fallback_driver = fallback_driver_car(text)
-            car = car or fallback_car
-            driver = driver or fallback_driver
+        driver = "Multiple"
+        team = "Multiple"
 
     decision_number = extract_decision_number(text)
     offence, decision, reason = extract_sections(text)
@@ -172,10 +193,10 @@ def process_all_pdfs():
     if df.empty:
         return df
 
-    # ✅ TIME CLEANING
+    # ✅ CLEAN TIME
     df["Time"] = pd.to_datetime(df["Time"], format="%H:%M", errors="coerce").dt.time
 
-    # ✅ DATE CLEANING
+    # ✅ CLEAN DATE
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
     df = df.sort_values(by=["Date", "Time"])
