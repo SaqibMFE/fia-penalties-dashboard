@@ -3,6 +3,7 @@ import pandas as pd
 import pdfplumber
 import re
 
+# ✅ Paths
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 RAW_DATA_PATH = os.path.join(BASE_DIR, "data", "raw")
 OUTPUT_PATH = os.path.join(BASE_DIR, "data", "processed", "penalties.csv")
@@ -22,119 +23,106 @@ def extract_text_from_pdf(pdf_path):
 
 
 # -------------------------------
-# CLEAN HELPERS
+# DRIVER + CAR EXTRACTION
 # -------------------------------
-def clean_driver(driver_line):
-    if not driver_line:
-        return None
+def extract_driver_and_car(text):
+    match = re.search(
+        r"N[°o]\s*/\s*Driver\s*\n?\s*(\d+)\s*/\s*(.+)",
+        text,
+        re.IGNORECASE
+    )
 
-    # Remove bracket info and car numbers
-    driver_line = re.sub(r"\(.*?\)", "", driver_line)
-    driver_line = re.sub(r"No\.?\s*\d+", "", driver_line)
+    if match:
+        car = match.group(1).strip()
+        driver = match.group(2).strip()
+        return car, driver
 
-    return driver_line.strip()
+    return None, None
 
 
 # -------------------------------
-# CORE PARSER (REAL FIX)
+# DECISION NUMBER
 # -------------------------------
-def parse_decision(text, file_name, folder_name):
+def extract_decision_number(text):
+    match = re.search(r"Decision\s*No\.?\s*(\d+)", text, re.IGNORECASE)
+    return match.group(1) if match else None
 
-    lines = [l.strip() for l in text.split("\n") if l.strip()]
 
-    data = {
-        "Event": folder_name,
-        "Date": None,
-        "Session": None,
-        "Time": None,
-        "Team": None,
-        "Driver Name": None,
-        "Car #": None,
-        "Decision Number": None,
-        "Offence": None,
-        "Regulation": None,
-        "Decision": None,
-        "Reason": None,
+# -------------------------------
+# TEAM
+# -------------------------------
+def extract_team(text):
+    match = re.search(r"Competitor\s*[:\-]?\s*(.*)", text, re.IGNORECASE)
+    return match.group(1).strip() if match else None
+
+
+# -------------------------------
+# META (DATE / SESSION / TIME)
+# -------------------------------
+def extract_meta(text):
+
+    date = re.search(r"Date\s*[:\-]?\s*(.*)", text, re.IGNORECASE)
+    session = re.search(r"Session\s*[:\-]?\s*(.*)", text, re.IGNORECASE)
+    time = re.search(r"Time\s*[:\-]?\s*(.*)", text, re.IGNORECASE)
+
+    return (
+        date.group(1).strip() if date else None,
+        session.group(1).strip() if session else None,
+        time.group(1).strip() if time else None,
+    )
+
+
+# -------------------------------
+# SECTIONS (OFFENCE / DECISION / REASON)
+# -------------------------------
+def extract_sections(text):
+
+    offence = re.search(r"Offence\s*[:\-]?\s*(.*)", text, re.IGNORECASE)
+    decision = re.search(r"Decision\s*[:\-]\s*(.*)", text, re.IGNORECASE)
+    reason = re.search(r"Reason\s*[:\-]?\s*(.*)", text, re.IGNORECASE)
+
+    return (
+        offence.group(1).strip() if offence else None,
+        decision.group(1).strip() if decision else None,
+        reason.group(1).strip() if reason else None,
+    )
+
+
+# -------------------------------
+# MAIN PARSER
+# -------------------------------
+def parse_decision(text, filename, folder):
+
+    lower = text.lower()
+
+    # ✅ MULTIPLE CASE
+    if "track limits" in lower:
+        car = None
+        driver = "Multiple"
+        team = "Multiple"
+    else:
+        car, driver = extract_driver_and_car(text)
+        team = extract_team(text)
+
+    decision_number = extract_decision_number(text)
+
+    offence, decision, reason = extract_sections(text)
+
+    date, session, time = extract_meta(text)
+
+    return {
+        "Event": folder,
+        "Date": date,
+        "Session": session,
+        "Time": time,
+        "Team": team,
+        "Driver Name": driver,
+        "Car #": car,
+        "Decision Number": decision_number,
+        "Offence": offence,
+        "Decision": decision,
+        "Reason": reason,
     }
-
-    # ✅ 1. DECISION NUMBER (FIXED)
-    for line in lines:
-        if "Decision No" in line:
-            match = re.search(r"Decision\s*No\.?\s*(\d+)", line)
-            if match:
-                data["Decision Number"] = match.group(1)
-            break
-
-    # ✅ 2. DATE / SESSION / TIME
-    for line in lines:
-        if line.startswith("Date"):
-            data["Date"] = line.split(":", 1)[-1].strip()
-
-        elif line.startswith("Session"):
-            data["Session"] = line.split(":", 1)[-1].strip()
-
-        elif line.startswith("Time"):
-            data["Time"] = line.split(":", 1)[-1].strip()
-
-    # ✅ 3. TRACK LIMITS / MULTIPLE
-    if "track limits" in text.lower():
-        data["Team"] = "Multiple"
-        data["Driver Name"] = "Multiple"
-
-    # ✅ 4. TEAM
-    for line in lines:
-        if line.startswith("Competitor"):
-            data["Team"] = line.split(":", 1)[-1].strip()
-            break
-
-    # ✅ 5. DRIVER + CAR
-    for line in lines:
-        if line.startswith("Driver"):
-            driver_line = line.split(":", 1)[-1].strip()
-
-            # Extract car number FROM SAME LINE if present
-            car_match = re.search(r"\b(\d{1,3})\b", driver_line)
-
-            if car_match:
-                data["Car #"] = car_match.group(1)
-
-            data["Driver Name"] = clean_driver(driver_line)
-            break
-
-    # ✅ Backup car extraction if missed
-    if not data["Car #"]:
-        for line in lines:
-            if line.startswith("Car"):
-                match = re.search(r"(\d+)", line)
-                if match:
-                    data["Car #"] = match.group(1)
-                break
-
-    # ✅ 6. OFFENCE (REAL FIX)
-    for i, line in enumerate(lines):
-        if line.startswith("Offence") or line.startswith("Incident"):
-            data["Offence"] = line.split(":", 1)[-1].strip()
-            break
-
-    # ✅ 7. REGULATION
-    for line in lines:
-        if line.startswith("Breach") or line.startswith("Regulation"):
-            data["Regulation"] = line.split(":", 1)[-1].strip()
-            break
-
-    # ✅ 8. DECISION (REAL FIX — must NOT use Decision No)
-    for line in lines:
-        if line.startswith("Decision:"):
-            data["Decision"] = line.split(":", 1)[-1].strip()
-            break
-
-    # ✅ 9. REASON (works already)
-    for i, line in enumerate(lines):
-        if line.startswith("Reason"):
-            data["Reason"] = line.split(":", 1)[-1].strip()
-            break
-
-    return data
 
 
 # -------------------------------
@@ -144,55 +132,68 @@ def process_all_pdfs():
 
     all_records = []
 
-    for root, dirs, files in os.walk(RAW_DATA_PATH):
+    for root, _, files in os.walk(RAW_DATA_PATH):
+
+        event = os.path.basename(root)
+
         for file in files:
 
             if file.lower().endswith(".pdf"):
 
-                pdf_path = os.path.join(root, file)
+                path = os.path.join(root, file)
 
                 try:
-                    text = extract_text_from_pdf(pdf_path)
+                    text = extract_text_from_pdf(path)
 
                     if not text.strip():
                         continue
 
-                    parsed = parse_decision(
-                        text,
-                        file_name=file,
-                        folder_name=os.path.basename(root),
-                    )
+                    row = parse_decision(text, file, event)
 
-                    all_records.append(parsed)
+                    all_records.append(row)
 
                 except Exception as e:
-                    print(f"Error: {file} -> {e}")
+                    print(f"Error processing {file}: {e}")
 
+    # ✅ CREATE DATAFRAME SAFELY
     df = pd.DataFrame(all_records)
 
-    # ✅ SORTING FIX (already working correctly)
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df["Time"] = pd.to_datetime(df["Time"], errors="coerce")
+    if df.empty:
+        print("⚠️ No data extracted")
+        return df
 
-    df = df.sort_values(by=["Date", "Time"])
+    # ✅ SAFE DATE + TIME HANDLING
+    if "Date" in df.columns:
+        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
-    # ✅ COLUMN ORDER FIX
-    df = df[
-        [
-            "Event",
-            "Date",
-            "Session",
-            "Time",
-            "Team",
-            "Driver Name",
-            "Car #",
-            "Decision Number",
-            "Offence",
-            "Regulation",
-            "Decision",
-            "Reason",
-        ]
+    if "Time" in df.columns:
+        df["Time"] = pd.to_datetime(df["Time"], errors="coerce")
+
+    # ✅ SORT (only if columns exist)
+    if "Date" in df.columns and "Time" in df.columns:
+        df = df.sort_values(by=["Date", "Time"], na_position="last")
+
+    # ✅ SAFE COLUMN ORDERING
+    columns_order = [
+        "Event",
+        "Date",
+        "Session",
+        "Time",
+        "Team",
+        "Driver Name",
+        "Car #",
+        "Decision Number",
+        "Offence",
+        "Decision",
+        "Reason",
     ]
 
+    df = df[[col for col in columns_order if col in df.columns]]
+
+    # ✅ SAVE CSV
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     df.to_csv(OUTPUT_PATH, index=False)
+
+    print(f"✅ CSV saved with {len(df)} rows")
+
+    return df
