@@ -82,20 +82,63 @@ if os.path.exists(DATA_PATH):
     if decision_filter:
         filtered_df = filtered_df[filtered_df["Decision Number"].isin(decision_filter)]
 
+   # -------------------------------
+    # ✅ PREMIUM TABLE DESIGN
+    # -------------------------------
+    
+    st.markdown("## 📊 Filtered Data")
+    
+    # ✅ Format dataframe for display
+    display_df = filtered_df.copy()
+    
+    # Format Date
+    if "Date" in display_df.columns:
+        display_df["Date"] = pd.to_datetime(display_df["Date"], errors="coerce").dt.strftime("%d %b %Y")
+    
+    # Format Time
+    if "Time" in display_df.columns:
+        display_df["Time"] = pd.to_datetime(display_df["Time"], errors="coerce").dt.strftime("%H:%M")
+    
+    # -------------------------------
+    # ✅ STYLING (THE KEY PART)
+    # -------------------------------
+    styled_df = display_df.style \
+        .set_properties(**{
+            "text-align": "left",
+            "white-space": "normal"
+        }) \
+        .set_table_styles([
+            {
+                "selector": "th",
+                "props": [
+                    ("font-size", "14px"),
+                    ("text-align", "left"),
+                    ("background-color", "#111111"),
+                    ("color", "white"),
+                    ("padding", "8px")
+                ]
+            },
+            {
+                "selector": "td",
+                "props": [
+                    ("padding", "6px"),
+                    ("font-size", "13px")
+                ]
+            }
+        ]) \
+        .highlight_max(subset=["Decision"], color="#ffeeba") \
+        .set_properties(subset=["Offence"], **{
+            "max-width": "300px"
+        }) \
+        .set_properties(subset=["Reason"], **{
+            "max-width": "400px"
+        })
+    
     # -------------------------------
     # ✅ DISPLAY TABLE
     # -------------------------------
-    st.subheader("📊 Filtered Data")
-    st.dataframe(filtered_df, use_container_width=True)
-
-    # ✅ Download button
-    csv = filtered_df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="📥 Download filtered CSV",
-        data=csv,
-        file_name="filtered_penalties.csv",
-        mime="text/csv",
+    st.dataframe(
+        styled_df,
+        use_container_width=True,
+        height=600
     )
-
-else:
-    st.error("❌ CSV not found")
