@@ -18,7 +18,7 @@ DATA_PATH = os.path.join(BASE_DIR, "data", "processed", "penalties.csv")
 st.title("FIA Penalties Dashboard")
 
 # -------------------------------
-# ✅ CLASSIFY PENALTIES (UPDATED)
+# ✅ CLASSIFY PENALTIES
 # -------------------------------
 def classify_penalty(decision_text):
     if pd.isna(decision_text):
@@ -26,7 +26,6 @@ def classify_penalty(decision_text):
 
     text = decision_text.lower()
 
-    # ✅ Your logic: must contain all 3 words
     if "5" in text and "second" in text and "time" in text and "penalty" in text:
         return "5 Second Time Penalty"
 
@@ -65,7 +64,7 @@ if os.path.exists(DATA_PATH):
     st.write(f"Total records: {len(df)}")
 
     # -------------------------------
-    # ✅ FILTERS
+    # ✅ FILTERS (UPDATED ✅)
     # -------------------------------
     st.subheader("🔎 Filters")
 
@@ -80,7 +79,7 @@ if os.path.exists(DATA_PATH):
         driver_filter = st.multiselect("Driver Name", df["Driver Name"].dropna().unique())
 
     with col3:
-        decision_filter = st.multiselect("Decision Number", df["Decision Number"].dropna().unique())
+        decision_filter = st.multiselect("Decision", df["Decision"].dropna().unique())
 
     # ✅ Apply filters
     filtered_df = df.copy()
@@ -98,7 +97,7 @@ if os.path.exists(DATA_PATH):
         filtered_df = filtered_df[filtered_df["Driver Name"].isin(driver_filter)]
 
     if decision_filter:
-        filtered_df = filtered_df[filtered_df["Decision Number"].isin(decision_filter)]
+        filtered_df = filtered_df[filtered_df["Decision"].isin(decision_filter)
 
     # -------------------------------
     # ✅ TABS
@@ -114,7 +113,7 @@ if os.path.exists(DATA_PATH):
 
         display_df = filtered_df.copy()
 
-        # ✅ Fix column types
+        # ✅ Fix types
         if "Car #" in display_df.columns:
             display_df["Car #"] = display_df["Car #"].astype(str).replace("nan", "")
 
