@@ -17,6 +17,37 @@ DATA_PATH = os.path.join(BASE_DIR, "data", "processed", "penalties.csv")
 
 st.title("FIA Penalties Dashboard")
 
+# -------------------------------
+# ✅ CLASSIFY PENALTIES (UPDATED)
+# -------------------------------
+def classify_penalty(decision_text):
+    if pd.isna(decision_text):
+        return "Other"
+
+    text = decision_text.lower()
+
+    # ✅ Your logic: must contain all 3 words
+    if "5" in text and "second" in text and "time" in text and "penalty" in text:
+        return "5 Second Time Penalty"
+
+    if "10" in text and "second" in text and "time" in text and "penalty" in text:
+        return "10 Second Time Penalty"
+
+    if "drive through" in text:
+        return "Drive Through"
+
+    if "grid" in text:
+        return "Grid Penalty"
+
+    if "fine" in text:
+        return "Fine"
+
+    if "reprimand" in text:
+        return "Reprimand"
+
+    return "Other"
+
+
 # ✅ Generate dataset if needed
 if not os.path.exists(DATA_PATH):
     st.write("⚙️ Generating dataset from PDFs...")
@@ -26,6 +57,9 @@ if not os.path.exists(DATA_PATH):
 if os.path.exists(DATA_PATH):
 
     df = pd.read_csv(DATA_PATH)
+
+    # ✅ Add penalty type
+    df["Penalty Type"] = df["Decision"].apply(classify_penalty)
 
     st.success("✅ Data loaded successfully")
     st.write(f"Total records: {len(df)}")
@@ -80,7 +114,7 @@ if os.path.exists(DATA_PATH):
 
         display_df = filtered_df.copy()
 
-        # ✅ FIX TYPES (CRITICAL)
+        # ✅ Fix column types
         if "Car #" in display_df.columns:
             display_df["Car #"] = display_df["Car #"].astype(str).replace("nan", "")
 
@@ -93,12 +127,11 @@ if os.path.exists(DATA_PATH):
         if "Time" in display_df.columns:
             display_df["Time"] = display_df["Time"].astype(str)
 
-        # ✅ PREMIUM TABLE
+        # ✅ Table
         st.data_editor(
             display_df,
             use_container_width=True,
             height=650,
-
             column_config={
                 "Event": st.column_config.TextColumn("Event", width="small"),
                 "Date": st.column_config.DateColumn("Date", width="small"),
@@ -112,11 +145,10 @@ if os.path.exists(DATA_PATH):
                 "Decision": st.column_config.TextColumn("Decision", width="large"),
                 "Reason": st.column_config.TextColumn("Reason", width="large"),
             },
-
             disabled=True,
         )
 
-        # ✅ DOWNLOAD BUTTON
+        # ✅ Download
         csv = filtered_df.to_csv(index=False).encode("utf-8")
 
         st.download_button(
@@ -151,10 +183,16 @@ if os.path.exists(DATA_PATH):
             x_axis1 = st.selectbox("X-axis (Graph 1)", filtered_df.columns, key="x1")
 
         with colB:
-            st.write("Metric: Count")
+            metric1 = st.selectbox(
+                "Penalty Type (Graph 1)",
+                filtered_df["Penalty Type"].unique(),
+                key="m1"
+            )
 
-        if x_axis1:
-            graph1_data = filtered_df[x_axis1].value_counts().reset_index()
+        data1 = filtered_df[filtered_df["Penalty Type"] == metric1]
+
+        if not data1.empty:
+            graph1_data = data1[x_axis1].value_counts().reset_index()
             graph1_data.columns = [x_axis1, "Count"]
 
             st.bar_chart(graph1_data.set_index(x_axis1))
@@ -170,10 +208,16 @@ if os.path.exists(DATA_PATH):
             x_axis2 = st.selectbox("X-axis (Graph 2)", filtered_df.columns, key="x2")
 
         with colD:
-            st.write("Metric: Count")
+            metric2 = st.selectbox(
+                "Penalty Type (Graph 2)",
+                filtered_df["Penalty Type"].unique(),
+                key="m2"
+            )
 
-        if x_axis2:
-            graph2_data = filtered_df[x_axis2].value_counts().reset_index()
+        data2 = filtered_df[filtered_df["Penalty Type"] == metric2]
+
+        if not data2.empty:
+            graph2_data = data2[x_axis2].value_counts().reset_index()
             graph2_data.columns = [x_axis2, "Count"]
 
             st.bar_chart(graph2_data.set_index(x_axis2))
