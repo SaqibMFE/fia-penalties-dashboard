@@ -44,6 +44,9 @@ def classify_penalty(decision_text):
     if "reprimand" in text:
         return "Reprimand"
 
+    if "No further Action" in text:
+        return "NFA"
+
     return "Other"
 
 
