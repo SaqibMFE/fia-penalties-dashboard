@@ -83,21 +83,21 @@ if os.path.exists(DATA_PATH):
 
     # ✅ Apply filters
     filtered_df = df.copy()
-
+    
     if event_filter:
         filtered_df = filtered_df[filtered_df["Event"].isin(event_filter)]
-
+    
     if session_filter:
         filtered_df = filtered_df[filtered_df["Session"].isin(session_filter)]
-
+    
     if team_filter:
         filtered_df = filtered_df[filtered_df["Team"].isin(team_filter)]
-
+    
     if driver_filter:
         filtered_df = filtered_df[filtered_df["Driver Name"].isin(driver_filter)]
-
+    
     if decision_filter:
-        filtered_df = filtered_df[filtered_df["Decision"].isin(decision_filter)
+        filtered_df = filtered_df[filtered_df["Decision"].isin(decision_filter)]
 
     # -------------------------------
     # ✅ TABS
