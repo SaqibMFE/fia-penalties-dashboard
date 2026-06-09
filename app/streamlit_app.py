@@ -3,7 +3,7 @@ import sys
 import os
 import pandas as pd
 
-# ✅ FULL WIDTH PAGE
+# ✅ FULL WIDTH
 st.set_page_config(layout="wide")
 
 # ✅ Fix import path
@@ -17,7 +17,7 @@ DATA_PATH = os.path.join(BASE_DIR, "data", "processed", "penalties.csv")
 
 st.title("FIA Penalties Dashboard")
 
-# ✅ Generate data if needed
+# ✅ Generate dataset if needed
 if not os.path.exists(DATA_PATH):
     st.write("⚙️ Generating dataset from PDFs...")
     process_all_pdfs()
@@ -67,27 +67,33 @@ if os.path.exists(DATA_PATH):
         filtered_df = filtered_df[filtered_df["Decision Number"].isin(decision_filter)]
 
     # -------------------------------
-    # ✅ CREATE TABS
+    # ✅ TABS
     # -------------------------------
     tab1, tab2 = st.tabs(["📋 Data", "📊 Analysis"])
 
-    # ===============================
-    # ✅ TAB 1 — DATA TABLE
-    # ===============================
+    # =======================================
+    # ✅ TAB 1 — TABLE
+    # =======================================
     with tab1:
 
         st.markdown("## 📊 Filtered Data")
 
         display_df = filtered_df.copy()
 
-        # ✅ FIX COLUMN TYPES
+        # ✅ FIX TYPES (CRITICAL)
         if "Car #" in display_df.columns:
             display_df["Car #"] = display_df["Car #"].astype(str).replace("nan", "")
 
         if "Decision Number" in display_df.columns:
             display_df["Decision Number"] = display_df["Decision Number"].astype(str)
 
-        # ✅ DISPLAY TABLE (PREMIUM)
+        if "Date" in display_df.columns:
+            display_df["Date"] = pd.to_datetime(display_df["Date"], errors="coerce")
+
+        if "Time" in display_df.columns:
+            display_df["Time"] = display_df["Time"].astype(str)
+
+        # ✅ PREMIUM TABLE
         st.data_editor(
             display_df,
             use_container_width=True,
@@ -110,7 +116,7 @@ if os.path.exists(DATA_PATH):
             disabled=True,
         )
 
-        # ✅ Download button
+        # ✅ DOWNLOAD BUTTON
         csv = filtered_df.to_csv(index=False).encode("utf-8")
 
         st.download_button(
@@ -120,16 +126,14 @@ if os.path.exists(DATA_PATH):
             mime="text/csv",
         )
 
-    # ===============================
+    # =======================================
     # ✅ TAB 2 — ANALYTICS
-    # ===============================
+    # =======================================
     with tab2:
 
         st.markdown("## 📊 Analytics & Insights")
 
-        # -------------------------------
         # ✅ KPIs
-        # -------------------------------
         col1, col2, col3 = st.columns(3)
 
         col1.metric("Total Decisions", len(filtered_df))
