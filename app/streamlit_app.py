@@ -26,6 +26,9 @@ def classify_penalty(decision_text):
 
     text = decision_text.lower()
 
+    if "no further action" in text:
+        return "NFA"
+    
     if "5" in text and "second" in text and "time" in text and "penalty" in text:
         return "5 Second Time Penalty"
 
@@ -43,9 +46,6 @@ def classify_penalty(decision_text):
 
     if "reprimand" in text:
         return "Reprimand"
-
-    if "No further Action" in text:
-        return "NFA"
 
     return "Other"
 
