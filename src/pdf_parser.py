@@ -22,11 +22,10 @@ def extract_text_from_pdf(pdf_path):
 
 
 # -------------------------------
-# DRIVER + CAR (ROBUST FIX)
+# DRIVER + CAR
 # -------------------------------
 def extract_driver_and_car(text):
 
-    # Handles line breaks + flexible spacing
     match = re.search(
         r"N[°o]\s*/\s*Driver\s*:\s*(\d+)\s*/\s*([^\n]+)",
         text,
@@ -35,17 +34,14 @@ def extract_driver_and_car(text):
 
     if match:
         car = match.group(1).strip()
-
-        # Remove everything after "Competitor"
         driver = re.split(r"Competitor", match.group(2))[0].strip()
-
         return car, driver
 
     return None, None
 
 
 # -------------------------------
-# TEAM (ROBUST)
+# TEAM
 # -------------------------------
 def extract_team(text):
 
@@ -53,17 +49,14 @@ def extract_team(text):
 
     if match:
         value = match.group(1)
-
-        # stop at next known field
         value = re.split(r"(Session|Time|Fact)", value)[0].strip()
-
         return value
 
     return None
 
 
 # -------------------------------
-# SESSION (ROBUST)
+# SESSION
 # -------------------------------
 def extract_session(text):
 
@@ -78,7 +71,7 @@ def extract_session(text):
 
 
 # -------------------------------
-# TIME (FACT ONLY ✅)
+# TIME (FACT ONLY)
 # -------------------------------
 def extract_time(text):
 
@@ -91,7 +84,7 @@ def extract_time(text):
 
 
 # -------------------------------
-# DATE (BOTTOM BLOCK)
+# DATE
 # -------------------------------
 def extract_date(text):
     match = re.search(r"Date\s*:\s*(.*)", text)
@@ -99,11 +92,26 @@ def extract_date(text):
 
 
 # -------------------------------
-# DECISION NUMBER
+# ✅ FIXED: DECISION NUMBER (WITH AMENDED)
 # -------------------------------
 def extract_decision_number(text):
-    match = re.search(r"Decision\s*no\.?\s*(\d+)", text, re.IGNORECASE)
-    return match.group(1) if match else None
+
+    match = re.search(
+        r"Decision\s*no\.?\s*(\d+)\s*(AMENDED)?",
+        text,
+        re.IGNORECASE
+    )
+
+    if match:
+        number = match.group(1)
+        amended = match.group(2)
+
+        if amended:
+            return f"{number} AMENDED"
+
+        return number
+
+    return None
 
 
 # -------------------------------
@@ -123,7 +131,7 @@ def extract_sections(text):
 
 
 # -------------------------------
-# MAIN PARSER
+# PARSER
 # -------------------------------
 def parse_decision(text, filename, folder):
 
@@ -134,7 +142,7 @@ def parse_decision(text, filename, folder):
     session = extract_session(text)
     time = extract_time(text)
 
-    # ✅ TRACK LIMITS FIX
+    # ✅ Track limits
     if "track limits" in lower:
         driver = "Multiple"
         team = "Multiple"
@@ -182,7 +190,6 @@ def process_all_pdfs():
                         continue
 
                     row = parse_decision(text, file, event)
-
                     all_records.append(row)
 
                 except Exception as e:
@@ -193,11 +200,9 @@ def process_all_pdfs():
     if df.empty:
         return df
 
-    # ✅ CLEAN TIME
-    df["Time"] = pd.to_datetime(df["Time"], format="%H:%M", errors="coerce").dt.time
-
-    # ✅ CLEAN DATE
+    # ✅ CLEAN DATE + TIME
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df["Time"] = pd.to_datetime(df["Time"], format="%H:%M", errors="coerce").dt.time
 
     df = df.sort_values(by=["Date", "Time"])
 
