@@ -86,7 +86,7 @@ if os.path.exists(DATA_PATH):
     # ✅ DISPLAY TABLE
     # -------------------------------
     st.subheader("📊 Filtered Data")
-    st.dataframe(filtered_df)
+    st.dataframe(filtered_df, use_container_width=True)
 
     # ✅ Download button
     csv = filtered_df.to_csv(index=False).encode("utf-8")
